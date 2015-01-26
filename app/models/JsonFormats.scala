@@ -20,15 +20,17 @@ object JsonFormats {
         case _ => error
       }
     },
-
     Writes { (d: org.joda.time.DateTime) =>
       JsString(d.toString)
     }
   )
 
-  implicit val track = Json.format[Track]
-  implicit val incomingTrack = Json.format[IncomingTrack]
-  implicit val incomingTracks = Json.format[IncomingTracks]
-
+  implicit val trackPointFormat = Json.format[TrackPoint]
+  implicit val incomingTrackFormat = Json.format[IncomingTrack]
+  implicit val incomingTracksFormat = Json.format[IncomingTracks]
+  implicit val extendedTrackPointFormat = Json.format[ExtendedTrackPoint]
+  implicit val vehicleStatusFormat = Json.format[VehicleStatus]
+  implicit val webEventFormat = Json.format[WebEvent]
+  implicit val webEventsFormat = Json.format[WebEvents]
 
 }

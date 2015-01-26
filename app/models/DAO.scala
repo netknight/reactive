@@ -34,8 +34,8 @@ object Tracks extends DAO {
   lazy val database = Database.forDataSource(DB.getDataSource())
   val tableQuery = TableQuery[TrackTable]
 
-  def insert(vehicleId: Int, trackList: List[Track])(implicit session: Session) = {
-    val tracks = trackList.map((t: Track) => VehicleTrack(0, vehicleId, t.date, t.latitude, t.longitude))
+  def insert(vehicleId: Int, trackList: List[TrackPoint])(implicit session: Session) = {
+    val tracks = trackList.map((t: TrackPoint) => VehicleTrack(0, vehicleId, t.date, t.latitude, t.longitude))
     tableQuery.insertAll(tracks: _*)
   }
 

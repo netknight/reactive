@@ -17,22 +17,30 @@ object Application extends Controller {
 
   def index = Action {
     val tl = IncomingTracks(List(
-      IncomingTrack("1", List(Track(new DateTime(), 0.0, 0.0), Track(new DateTime(), 1.1, 1.1))),
-      IncomingTrack("1", List(Track(new DateTime(), 0.0, 0.0), Track(new DateTime(), 1.1, 1.1)))
+      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 1.1, 1.1))),
+      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 1.1, 1.1)))
     ))
     Ok(Json.toJson(tl))
   }
 
   def list = Action {
+    // TODO: Rewrite to ask from Actor
     val tracks = Tracks.database.withSession { implicit session =>
       IncomingTracks(Tracks.list.groupBy(_.vehicleId).map(tr =>
         IncomingTrack(tr._1.toString, tr._2.map(t =>
-          Track(t.date, t.latitude, t.longitude)
+          TrackPoint(t.date, t.latitude, t.longitude)
         ))
       ).toList)
     }
     Ok(Json.toJson(tracks))
+  }
 
+  def status(vehicleId: Int) = Action.async { implicit request =>
+    Future.successful(Ok(Json.toJson(AkkaService.getStatus(vehicleId))))
+  }
+
+  def events(vehicleId: Int) = Action.async { implicit request =>
+    Future.successful(Ok(Json.toJson(Convertor.convert(AkkaService.getEvents(vehicleId)))))
   }
 
   def track = Action.async(parse.json) { implicit request =>

@@ -15,5 +15,7 @@ libraryDependencies ++= Seq(
   "org.slf4j" % "slf4j-nop" % "1.6.4",
   "com.typesafe.slick" %% "slick" % "2.1.0",
   "com.h2database" % "h2" % "1.3.170",
-  "com.typesafe.play" %% "play-slick" % "0.8.0"
+  "com.typesafe.play" %% "play-slick" % "0.8.0",
+  "org.scalatest" %% "scalatest" % "2.2.1" % "test",
+  "com.typesafe.akka" %% "akka-testkit" % "2.3.4" % "test"
 )
