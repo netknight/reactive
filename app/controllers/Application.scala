@@ -17,8 +17,8 @@ object Application extends Controller {
 
   def index = Action {
     val tl = IncomingTracks(List(
-      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 1.1, 1.1))),
-      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 1.1, 1.1)))
+      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 10.0, 10.0))),
+      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 5.0, 5.0)))
     ))
     Ok(Json.toJson(tl))
   }

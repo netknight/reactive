@@ -6,6 +6,8 @@ import akka.actor.{Props, ActorSystem}
 import models._
 import org.joda.time.DateTime
 import org.scalatest.{Matchers, BeforeAndAfterAll, FeatureSpecLike}
+import play.api.test.FakeApplication
+import services.AkkaService
 
 import scala.concurrent.duration._
 
@@ -65,9 +67,27 @@ with FeatureSpecLike with Matchers with BeforeAndAfterAll {
     }
     scenario("Track calculations") {
       val tp1 = TrackPoint(dt, 1.0, 1.0)
-      val tp2 = TrackPoint(dt, 2.0, 2.0)
+      val tp2 = TrackPoint(dt.plusMinutes(10), 10.0, 10.0)
       actor ! IncomingTrack("1", List(tp1, tp2))
-      probe1.expectMsg(ExtendedTrack(List(ExtendedTrackPoint(tp1, 0, 1.4142135623730951, 0), ExtendedTrackPoint(tp2, 0, 1.4142135623730951, 0))))
+      probe1.expectMsg(ExtendedTrack(List(ExtendedTrackPoint(tp1, 0, 1.4142135623730951, 0), ExtendedTrackPoint(tp2, 0, 12.727922061357855, 76))))
+    }
+  }
+
+  feature("Full stack") {
+    val tp1 = TrackPoint(dt, 1.0, 1.0)
+    val tp2 = TrackPoint(dt.plusMinutes(10), 14.0, 14.0)
+    scenario("speeding") {
+      import play.api.test.Helpers.running
+      running(FakeApplication()) {
+        val trackSaved = AkkaService.pushTrack(IncomingTracks(List(IncomingTrack("1", List(tp1, tp2)))))
+        trackSaved.payload.isSuccess shouldEqual true
+        val status = AkkaService.getStatus(1)
+        status.vehicleId shouldEqual 1
+        status.lastPoint should not be empty
+        val events = AkkaService.getEvents(1)
+        events.events.size shouldEqual 2
+        events.events shouldEqual List(SpeedingBeginEvent(1, tp2, 110), MovedEvent(1, tp2))
+      }
     }
   }
 

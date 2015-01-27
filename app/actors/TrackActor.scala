@@ -116,7 +116,7 @@ class VehicleStatusActor(vehicleId: Int, subscribers: List[ActorRef]) extends Ac
       case Some(x) =>
         val mileage = sqrt(pow(x.point.latitude - point.latitude, 2) + pow(x.point.longitude - point.longitude, 2))
         val millis = (point.date.getMillis - x.point.date.getMillis).toInt
-        val speed = if (millis > 0) (mileage / millis / 1000 / 60 / 60).round.toInt else 0
+        val speed = if (millis > 0) (mileage / millis * 1000 * 60 * 60).round.toInt else 0
         val angle = 0 // TODO: Write some formula
         lastPoint = Some(ExtendedTrackPoint(point, angle ,mileage, speed))
       case None =>
@@ -131,6 +131,7 @@ class VehicleStatusActor(vehicleId: Int, subscribers: List[ActorRef]) extends Ac
 
   private def processEvent(event: IncomingTrack, sender: ActorRef): Unit = {
     val processingInfo = ExtendedTrack(event.track.map(t => buildMissingTrackInfo(t)))
+    log.debug("ProcessedTrack: {}", processingInfo)
     subscribers.foreach(actor => actor.tell(processingInfo, sender)) // Resend calculated data ahead with reply to VehicleActor
     lastPoint = Some(processingInfo.track.last)
   }
