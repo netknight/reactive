@@ -42,6 +42,14 @@ object Tracks extends DAO {
   def list()(implicit session: Session) = {
     tableQuery.list
   }
+
+  def list(id: Int)(implicit session: Session) = {
+    tableQuery.filter(_.vehicleId === id).list
+  }
+
+  def clean()(implicit session: Session) = {
+    tableQuery.delete
+  }
 }
 
 class VehicleTable(tag: Tag) extends Table[Vehicle](tag, "VEHICLE") with Logging {

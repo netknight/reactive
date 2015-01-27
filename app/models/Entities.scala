@@ -18,6 +18,7 @@ trait Event {
   def point: TrackPoint
 }
 
+case class GetAllTracks()
 case class TrackSaved(payload: Try[IncomingTracks])
 case class GetCurrentStatus(vehicleId: Int)
 case class GetEvents(vehicleId: Int)

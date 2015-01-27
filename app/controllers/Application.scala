@@ -17,21 +17,14 @@ object Application extends Controller {
 
   def index = Action {
     val tl = IncomingTracks(List(
-      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 10.0, 10.0))),
-      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime(), 5.0, 5.0)))
+      IncomingTrack("1", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime().plusMinutes(10), 10.0, 10.0))),
+      IncomingTrack("2", List(TrackPoint(new DateTime(), 0.0, 0.0), TrackPoint(new DateTime().plusMinutes(10), 14.0, 14.0)))
     ))
     Ok(Json.toJson(tl))
   }
 
   def list = Action {
-    // TODO: Rewrite to ask from Actor
-    val tracks = Tracks.database.withSession { implicit session =>
-      IncomingTracks(Tracks.list.groupBy(_.vehicleId).map(tr =>
-        IncomingTrack(tr._1.toString, tr._2.map(t =>
-          TrackPoint(t.date, t.latitude, t.longitude)
-        ))
-      ).toList)
-    }
+    val tracks = AkkaService.getAllTracks
     Ok(Json.toJson(tracks))
   }
 

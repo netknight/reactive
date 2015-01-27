@@ -19,7 +19,7 @@ with FeatureSpecLike with Matchers with BeforeAndAfterAll {
 
   def this() = this(ActorSystem("ActorSpec"))
 
-  override def afterAll() {
+  override def afterAll(): Unit = {
     TestKit.shutdownActorSystem(system)
   }
 
@@ -76,9 +76,14 @@ with FeatureSpecLike with Matchers with BeforeAndAfterAll {
   feature("Full stack") {
     val tp1 = TrackPoint(dt, 1.0, 1.0)
     val tp2 = TrackPoint(dt.plusMinutes(10), 14.0, 14.0)
-    scenario("speeding") {
+    scenario("speeding & movement") {
       import play.api.test.Helpers.running
       running(FakeApplication()) {
+        // Tracks cleanup
+        Tracks.database.withSession { implicit session =>
+          Tracks.clean()
+        }
+
         val trackSaved = AkkaService.pushTrack(IncomingTracks(List(IncomingTrack("1", List(tp1, tp2)))))
         trackSaved.payload.isSuccess shouldEqual true
         val status = AkkaService.getStatus(1)
@@ -86,7 +91,8 @@ with FeatureSpecLike with Matchers with BeforeAndAfterAll {
         status.lastPoint should not be empty
         val events = AkkaService.getEvents(1)
         events.events.size shouldEqual 2
-        events.events shouldEqual List(SpeedingBeginEvent(1, tp2, 110), MovedEvent(1, tp2))
+        events.events should contain (SpeedingBeginEvent(1, tp2, 110))
+        events.events should contain (MovedEvent(1, tp2))
       }
     }
   }

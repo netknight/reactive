@@ -27,4 +27,8 @@ object AkkaService {
   def getStatus(vehicleId: Int): VehicleStatus = {
     Await.result(vehicleMgrActor ? GetCurrentStatus(vehicleId), timeout.duration).asInstanceOf[VehicleStatus]
   }
+
+  def getAllTracks: IncomingTracks = {
+    Await.result(vehicleMgrActor ? GetAllTracks(), timeout.duration).asInstanceOf[IncomingTracks]
+  }
 }

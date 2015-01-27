@@ -1,7 +1,9 @@
 package actors
 
+import akka.pattern.ask
 import akka.actor.{ActorRef, Props, ActorLogging, Actor}
 import akka.event.LoggingReceive
+import akka.util.Timeout
 import models._
 import org.joda.time.DateTime
 
@@ -19,7 +21,7 @@ class TrackMgrActor(vehicleMgrActor: ActorRef) extends Actor with ActorLogging {
       event.payload match {
         case Success(tracks) =>
           tracks.devices.foreach(deviceTrack => vehicleMgrActor ! deviceTrack)
-        case _ => // Must never happen because failed result must never be sent to this actor
+        case _ => // Not needed, but scala warnings fired without this match case
       }
   }
 }
@@ -38,8 +40,6 @@ class TrackSaverActor(parent: ActorRef) extends Actor with ActorLogging {
 
   override def receive = LoggingReceive {
     case event: IncomingTracks =>
-      log.debug("Track received: {}", event)
-      println("Track received: " + event)
       val result = saveTracks(event)
       sender ! result
       if (result.payload.isSuccess) parent ! result // No need to send failed data for processing
@@ -64,10 +64,25 @@ class VehicleMgrActor extends Actor with ActorLogging {
     vehicleActors.getOrElse(vehicleId, createVehicleActor(vehicleId))
   }
 
+  private def processGetTracks(event: GetAllTracks): Unit = {
+    import scala.concurrent.{Await,Future}
+    import scala.concurrent.duration._
+
+    implicit val timeout = Timeout(4 seconds)
+
+    var results: List[Future[IncomingTrack]] = List()
+    vehicleActors.values.foreach(actor => {
+      val res = (actor ? event).mapTo[IncomingTrack]
+      results = results ::: List(res)
+    })
+    sender ! IncomingTracks(Await.result(Future.sequence(results), timeout.duration))
+  }
+
   override def receive = LoggingReceive {
     case event: IncomingTrack => findActorForVehicle(Vehicles.getVehicleId(event.deviceId)) ! event
     case event: GetCurrentStatus => findActorForVehicle(event.vehicleId) forward event
     case event: GetEvents => findActorForVehicle(event.vehicleId) forward event
+    case event: GetAllTracks => processGetTracks(event)
   }
 }
 
@@ -87,7 +102,6 @@ class VehicleActor(val mgrActor: ActorRef, val vehicle: Vehicle) extends Actor w
   }
 
   private def processIncomingTrack(event: IncomingTrack): Unit = {
-    log.debug("Track received: {}", event)
     if (event.track.isEmpty) return
     vehicleStatusActor ! event
     track = (track ::: event.track).sortBy(_.date)
@@ -103,6 +117,14 @@ class VehicleActor(val mgrActor: ActorRef, val vehicle: Vehicle) extends Actor w
     case event: GetCurrentStatus => vehicleStatusActor forward event
     case event: Event => addEvent(event)
     case event: GetEvents => sender ! VehicleEvents(vehicle.id, events)
+    case event: GetAllTracks => sender ! IncomingTrack(vehicle.id.toString, track)
+  }
+
+  override def preStart(): Unit = {
+    log.info("Initializing local track cache...")
+    Tracks.database.withSession { implicit session =>
+      track = Tracks.list(vehicle.id).map(tp => TrackPoint(tp.date, tp.latitude, tp.longitude))
+    }
   }
 }
 
@@ -131,7 +153,6 @@ class VehicleStatusActor(vehicleId: Int, subscribers: List[ActorRef]) extends Ac
 
   private def processEvent(event: IncomingTrack, sender: ActorRef): Unit = {
     val processingInfo = ExtendedTrack(event.track.map(t => buildMissingTrackInfo(t)))
-    log.debug("ProcessedTrack: {}", processingInfo)
     subscribers.foreach(actor => actor.tell(processingInfo, sender)) // Resend calculated data ahead with reply to VehicleActor
     lastPoint = Some(processingInfo.track.last)
   }
@@ -153,8 +174,8 @@ class SpeedingActor(vehicleId: Int) extends Actor with ActorLogging {
       val goodTrack = event.track.dropWhile(_.speed > speedLimit)
       if (goodTrack.size > 0) {
         sender ! SpeedingEndEvent(vehicleId, goodTrack.head.point, goodTrack.head.speed)
-        self.tell(ExtendedTrack(goodTrack), sender())
         unbecome()
+        self.tell(ExtendedTrack(goodTrack), sender())
       }
   }
 
@@ -165,8 +186,8 @@ class SpeedingActor(vehicleId: Int) extends Actor with ActorLogging {
       val speedingTrack = event.track.dropWhile(_.speed <= speedLimit)
       if (speedingTrack.size > 0) {
         sender ! SpeedingBeginEvent(vehicleId, speedingTrack.head.point, speedingTrack.head.speed)
-        self.tell(ExtendedTrack(speedingTrack), sender())
         become(speeding)
+        self.tell(ExtendedTrack(speedingTrack), sender())
       }
   }
 }
@@ -181,8 +202,8 @@ class MovementDetectorActor(vehicleId: Int) extends Actor with ActorLogging {
       val stoppedTrack = event.track.dropWhile(_.speed > 0)
       if (stoppedTrack.size > 0) {
         sender ! StoppedEvent(vehicleId, stoppedTrack.head.point)
+        unbecome()
         self.tell(ExtendedTrack(stoppedTrack), sender())
-       unbecome()
       }
   }
 
@@ -192,8 +213,8 @@ class MovementDetectorActor(vehicleId: Int) extends Actor with ActorLogging {
       val movedTrack = event.track.dropWhile(_.speed <= 0)
       if (movedTrack.size > 0) {
         sender ! MovedEvent(vehicleId, movedTrack.head.point)
-        self.tell(ExtendedTrack(movedTrack), sender())
         become(moving)
+        self.tell(ExtendedTrack(movedTrack), sender())
       }
   }
 
